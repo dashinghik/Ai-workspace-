@@ -1,0 +1,64 @@
+name: Agent Squad
+
+# 4 AI agents milkar kaam karte hain — bilkul FREE (GitHub Models, koi API key nahi).
+# Kaise chalao:
+#   Actions tab -> "Agent Squad" -> "Run workflow" -> goal likho -> green "Run workflow" dabao
+
+on:
+  workflow_dispatch:
+    inputs:
+      goal:
+        description: "Squad se kya karwana hai? (Hinglish me likho)"
+        required: true
+        type: string
+        default: "Mere liye ek simple daily study planner banao - plan aur code dono"
+      rounds:
+        description: "Kitne round? (1-4, default 2)"
+        required: false
+        type: string
+        default: "2"
+
+permissions:
+  contents: write   # run ki files repo me save karne ke liye
+  models: read      # ye line GitHub Models ka FREE AI access deti hai
+
+jobs:
+  squad:
+    name: Run 4-agent squad
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Repo ke files download karo
+        uses: actions/checkout@v4
+
+      - name: Python setup karo
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Squad chalao (Scout, Architect, Builder, Critic)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python squad.py --goal "${{ inputs.goal }}" --rounds "${{ inputs.rounds }}"
+
+      - name: Final report dikhao
+        run: |
+          latest=$(ls -td runs/*/ | head -1)
+          {
+            echo "# 🎯 Goal: ${{ inputs.goal }}"
+            echo ""
+            cat "${latest}06-FINAL.md"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Result repo me save karo
+        continue-on-error: true
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add runs/
+          if git diff --staged --quiet; then
+            echo "Kuch naya nahi hai."
+          else
+            git commit -m "squad run: $(date -u +%F) [skip ci]"
+            git push
+          fi
